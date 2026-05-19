@@ -9,15 +9,7 @@ from langgraph.graph import StateGraph, START, END
 # --- SECTION 1: Graph State Definition ---
 
 class GraphState(TypedDict):
-    """The central state schema for the Anviksha analysis pipeline.
-    
-    DESIGN RATIONALE:
-    Instead of passing complex variables across deep, nested function parameters,
-    the StateGraph maintains a single, thread-safe, serializable state dictionary.
-    Each node receives a read-only snapshot of this state and returns a dictionary
-    containing only the keys it wants to update. LangGraph automatically applies
-    these updates, ensuring clean data isolation.
-    """
+    """State schema for the Anviksha analysis pipeline, tracking inputs, intermediate specialist context frames, and evaluations."""
     raw_input: str
     input_type: str
     provider: str
@@ -67,14 +59,7 @@ async def orchestrator_node(state: GraphState) -> Dict[str, Any]:
     }
 
 async def security_node(state: GraphState) -> Dict[str, Any]:
-    """Executes the security agent, prepending its context frame if available.
-    
-    DESIGN DECISION: Isolation & Fallbacks.
-    If the Orchestrator fails or isn't run, we pass the raw code directly to the
-    specialist instead of crashing the pipeline. If the agent itself fails,
-    we catch the exception locally, write the error to the state, and return
-    an empty findings list, preventing a single failure from blocking other agents.
-    """
+    """Executes the security agent, prepending its context frame if available and handles errors gracefully."""
     from app.agents.security import SecurityAgent
     agent = SecurityAgent(
         provider=state.get("provider", "groq"),
@@ -96,15 +81,7 @@ async def security_node(state: GraphState) -> Dict[str, Any]:
 # --- SECTION 3: Stateful Graph Compilation ---
 
 def build_analysis_graph() -> Any:
-    """Builds and compiles the stateful LangGraph mapping.
-    
-    DESIGN RATIONALE:
-    By declaring multiple edges pointing from a single node, LangGraph automatically
-    handles parallel fan-outs (running Security, Performance, and Architecture
-    specialists in parallel). By directing all three agent nodes into the sequential
-    Evaluator, it enforces a clean synchronization join, executing the Evaluator
-    only after all parallel agents have finished.
-    """
+    """Compiles parallel specialists and sequential post-processing nodes into a compiled StateGraph."""
     builder = StateGraph(GraphState)
 
     # 1. Register Graph Nodes

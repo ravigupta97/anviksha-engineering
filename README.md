@@ -1,3 +1,5 @@
+<div align="center">
+
 # Anviksha — Multi-Agent Code Review System
 
 **अन्वीक्षा** (Sanskrit) — *Critical inquiry. Systematic examination.*
@@ -9,19 +11,24 @@
 [![Groq](https://img.shields.io/badge/Groq-llama--3.3--70b-orange?style=flat-square)](https://groq.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
-<!-- Add live demo URL when deployed -->
+</div>
 
 ---
 
 ## What Is This Repository?
 
-This is the **public engineering documentation** for Anviksha — a multi-agent code review system that runs specialist AI agents in parallel, detects conflicts between their findings, and optionally resolves contradictions via a judge agent.
+This is the **public engineering documentation** for Anviksha - a multi-agent code review system that runs specialist AI agents in parallel, detects conflicts between their findings, and optionally resolves contradictions via a judge agent.
 
 The full private codebase is not public. This repository documents the architecture, agent design, engineering decisions, and patterns in depth.
 
 > **Who is this for?** Engineers evaluating system design depth, engineering managers reviewing technical judgment, or anyone curious about production-grade multi-agent orchestration with LangGraph and FastAPI.
 
 ---
+
+## 🚀 Live System
+
+Anviksha is currently deployed and publicly accessible. You can explore the system and interact with the system using the live URL:
+**[Anviksha - a multi-agent code review system](https://anviksha-one.vercel.app)**
 
 ## The Problem This Solves
 
@@ -150,17 +157,9 @@ The **Conflict Detection Agent** compares findings to locate genuine logical con
 
 ---
 
-## Demo
-
-<!-- Add demo GIF here: record a full analysis run showing parallel agents, conflict detection, and judge toggle -->
-<!-- Suggested tool: Kap (macOS) or ScreenToGif (Windows) -->
-<!-- Target length: 30-45 seconds showing the full pipeline -->
-
-<!-- Add screenshots here after deployment -->
-
 ### Running Locally
 
-Clone the private repo (access required) or use the sample inputs below to test the live demo at [live URL].
+Clone the private repo (access required) or use the sample inputs below to test the live demo at [Anviksha - a multi-agent code review system](https://anviksha-one.vercel.app).
 
 Sample inputs that produce interesting results:
 - [sql-injection.py](demo/sample-inputs/sql-injection.py) — triggers Security critical + Performance warning conflict
@@ -225,13 +224,15 @@ Sample inputs that produce interesting results:
 | **Debate Mode** | When conflicts are detected, agents exchange rebuttals (max 2 rounds) before the Judge resolves, using rebuttal edges in the graph. |
 | **Additional Agents** | Introduces a Clean Code Agent (unused variables, magic numbers) and a Reliability Agent (missing error catches, unhandled calls). |
 | **Git CI/CD Integration** | Webhook-triggered reviews of changed files per commit, posting findings as inline PR comments via the GitHub Checks API. |
-| **User Authentication** | User signups/logins (via AuthShield integration), saving persistent custom API keys and custom scanning rules. |
 | **Report Persistence & Dashboard**| Full run histories per user, trend charts (tracking critical findings over time), and cross-run comparison dashboards. |
 | **Stronger Judge Model** | Upgrades the Judge Agent to a larger, reasoning-capable model (`JUDGE_MODEL`) via simple configuration. |
 | **IDE Plugin** | VS Code extension highlighting findings as inline squiggles, supporting right-click "Analyze with Anviksha". |
 
 ---
 
+<div align="center">
+
 Built with precision. Designed for production.
 
-Private codebase available for review during interview process.
+</div>
+

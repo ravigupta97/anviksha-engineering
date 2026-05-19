@@ -14,6 +14,7 @@ V1 successfully establishes the stateful multi-agent execution pipeline, persist
 - [x] **Real-Time Event Streaming:** Progressive rendering of findings via unidirectional Server-Sent Events (SSE).
 - [x] **Conflict Detection:** Automatic scanning for logical contradictions and mutually exclusive instructions.
 - [x] **On-Demand Judge Arbitration:** Post-hoc, user-triggered resolution of contradictions with a detailed technical compromise.
+- [x] **Secure User Authentication:** Decoupled developer registration, session token signing, and cryptographic JWT validation via the AuthShield microservice.
 - [x] **Persistent Session Storage:** Secure storage for runs, historical findings, and AES-256 encrypted provider keys.
 
 ---

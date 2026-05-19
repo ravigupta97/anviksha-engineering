@@ -13,15 +13,8 @@ from app.utils.providers import get_llm_provider
 from app.config import settings
 
 logger = get_logger(__name__)
-
 class BaseAgent(ABC):
-    """Abstract base class for all specialized analysis agents.
-    
-    DESIGN RATIONALE:
-    Instead of duplicating retry logic, client configuration, and JSON parsing across
-    each agent, we isolate all LLM calling infrastructure here. Specialist agents
-    only need to define their domain-specific system prompts and names.
-    """
+    """Abstract base class for all specialized analysis agents, isolating LLM communication, retry loops, and JSON schema parsing."""
 
     def __init__(
         self,
@@ -37,10 +30,7 @@ class BaseAgent(ABC):
         self.max_retries = max_retries
         self.base_delay = base_delay
         
-        # DESIGN DECISION: Lazy client initialization.
-        # We delay initializing the LLM client until the actual call is made,
-        # ensuring that testing environments or fast server boot probes don't
-        # fail due to missing or invalid credentials at startup.
+        # Lazy load LLM client during first active request
         self._client: Optional[Any] = None
 
     @property
@@ -63,14 +53,7 @@ class BaseAgent(ABC):
         return self._client
 
     async def _call_llm(self, prompt: str) -> str:
-        """Raw LLM calling utility with fallback provider and exponential backoff retry.
-        
-        DESIGN RATIONALE:
-        API rate limits (429) or transient provider outages should never crash a live review.
-        This gateway automatically retries failed requests with exponential backoff. If the primary
-        provider (e.g., Groq) is down, it seamlessly falls back to the secondary provider (Anthropic)
-        using configured credentials, maintaining maximum session availability.
-        """
+        """Inference gateway with provider fallback and exponential backoff for rate limits or server errors."""
         last_exception = None
         delay = self.base_delay
         start_time = time.perf_counter()
@@ -153,16 +136,8 @@ class BaseAgent(ABC):
         if last_exception:
             raise last_exception
         raise RuntimeError("LLM call failed without exception")
-
     async def run(self, input_code: str) -> AgentOutput:
-        """Core execution loop with JSON structural repair.
-        
-        DESIGN RATIONALE:
-        LLMs can sometimes wrap their JSON outputs in Markdown code blocks or return
-        slightly malformed JSON syntax. Instead of immediately raising a validation error,
-        this method parses and sanitizes the response. If the JSON remains malformed,
-        it appends a corrective prompt and executes a single structural retry.
-        """
+        """Executes inference and handles JSON parsing with corrective prompt retry."""
         full_prompt = f"{self.system_prompt}\n\n{input_code}"
 
         try:

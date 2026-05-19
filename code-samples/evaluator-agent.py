@@ -12,13 +12,7 @@ from app.config import settings
 logger = get_logger(__name__)
 
 class EvaluatorAgent:
-    """Evaluator agent that scores each finding on four dimensions and flags low-confidence ones.
-    
-    DESIGN RATIONALE:
-    To protect code reviews from large model halluncinations or minor, non-actionable
-    style suggestions, the Evaluator validates findings blindly, scoring each along
-    four strict quality dimensions.
-    """
+    """Evaluator agent that scores each finding on four dimensions and flags low-confidence ones."""
 
     SYSTEM_PROMPT = """You are an evaluator agent that scores code review findings.
 
@@ -45,13 +39,7 @@ Return ONLY this JSON format:
         self.model = settings.AGENT_MODEL
         
     def _build_evaluator_input(self, all_findings: List[Finding], all_agents: List[AgentOutput]) -> str:
-        """Compiles all findings into a generic flat index to enforce blind evaluation.
-        
-        DESIGN DECISION: Blind evaluation (Mitigates Self-Evaluation Bias).
-        We strip the actual model markers or generating agent identities, presenting
-        a flat list of items keyed by a generic index. The Evaluator scores each item
-        objectively without developer-bias or model-lenience skewing the results.
-        """
+        """Compiles all findings into a flat index, stripping agent identities to ensure unbiased scoring."""
         findings_text = []
         idx = 0
         for agent_output in all_agents:
@@ -67,13 +55,7 @@ Return ONLY this JSON format:
         return "\n\n---\n\n".join(findings_text)
 
     def _normalize_evaluation(self, ev: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Validates and normalizes the parsed JSON output from the LLM.
-        
-        DESIGN DECISION: Fault Tolerance.
-        Since LLMs can sometimes alter field names or return variations of camelCase/snake_case,
-        this utility uses dynamic field-mappings to translate properties back to our exact
-        Pydantic v2 schemas.
-        """
+        """Normalizes and maps LLM-returned fields to strict schemas using elastic key mapping."""
         normalized = {}
         
         # Field mapping definitions for elastic key matching

@@ -8,13 +8,7 @@ from app.agents.base import BaseAgent
 from app.models.schemas import AgentOutput
 
 class ConflictDetectionAgent(BaseAgent):
-    """Conflict detection agent - identifies contradictions between agent findings.
-    
-    DESIGN RATIONALE:
-    This specialist acts as an adversarial filter. By analyzing the flat list of findings,
-    it identifies cases where agents recommend mutually exclusive or contradictory actions on the same
-    component (e.g., Security says "do not cache" and Performance says "cache").
-    """
+    """Conflict detection agent that identifies semantic contradictions between specialist findings."""
 
     @property
     def system_prompt(self) -> str:
@@ -62,12 +56,7 @@ JSON SCHEMA:
         performance_output: AgentOutput,
         architecture_output: AgentOutput,
     ) -> Dict[str, Any]:
-        """Runs the semantic conflict analysis over the three agent output findings.
-        
-        DESIGN DECISION: State Consolidation.
-        We format and dump findings into a single structured payload. This isolates the
-        detection analysis to a single context call, maximizing inference efficiency.
-        """
+        """Formulates a consolidated findings payload and invokes semantic contradiction scanning."""
         input_data = {
             "security": {
                 "agent": "security",

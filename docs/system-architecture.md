@@ -20,7 +20,84 @@ The architecture is strictly split into three isolated services communicating ov
 
 The execution cycle begins when the client submits code for review. The diagram below illustrates how raw inputs traverse the backend system:
 
-![Pipeline Flow](../diagrams/pipeline-flow.md)
+```mermaid
+flowchart TD
+    subgraph Inputs [Input Channels]
+        Snippet[Snippet Submission]
+        Text[Text Area Input]
+        File[File Upload Input]
+    end
+
+    subgraph Interface [FastAPI Layer]
+        API_Analyze[POST /api/v1/analyze]
+        API_Judge[POST /api/v1/judge]
+    end
+
+    subgraph Graph [LangGraph Orchestration Pipeline]
+        Preprocess[preprocess_node<br/>Sanitizes input]
+        Orchestrator[orchestrator_node<br/>Generates Context Frames]
+        
+        Security[security_node<br/>SecurityAgent Specialist]
+        Performance[performance_node<br/>PerformanceAgent Specialist]
+        Architecture[architecture_node<br/>ArchitectureAgent Specialist]
+        
+        Evaluator[evaluator_node<br/>Blind confidence scoring]
+        Conflict[conflict_detection_node<br/>Mutual exclusivity scan]
+        Aggregator[aggregator_node<br/>Deduplicates & Packages]
+    end
+
+    subgraph ClientPush [Progressive SSE Client Stream]
+        SSE[SSE Stream Generator]
+    end
+
+    subgraph Persistence [Storage Layer]
+        DB[(PostgreSQL Run History)]
+    end
+
+    subgraph Arbitrator [On-Demand Resolution]
+        Judge[JudgeAgent Specialist]
+    end
+
+    %% Input paths
+    Snippet --> API_Analyze
+    Text --> API_Analyze
+    File --> API_Analyze
+
+    %% Core graph execution sequence
+    API_Analyze --> Preprocess
+    Preprocess -->|Sanitized Input| Orchestrator
+    
+    %% Parallel fan-out with context frames
+    Orchestrator -->|Security Context Frame| Security
+    Orchestrator -->|Performance Context Frame| Performance
+    Orchestrator -->|Architecture Context Frame| Architecture
+
+    %% Parallel fan-in to sequential nodes
+    Security -->|Findings List| Evaluator
+    Performance -->|Findings List| Evaluator
+    Architecture -->|Findings List| Evaluator
+
+    %% Sequential evaluation & post-processing
+    Evaluator -->|Confidence Evaluated Findings| Conflict
+    Conflict -->|Contradictions & Findings| Aggregator
+
+    %% Real-time Server-Sent Events push
+    Preprocess -.->|preprocess_complete| SSE
+    Orchestrator -.->|orchestrator_context| SSE
+    Security -.->|agent_result security| SSE
+    Performance -.->|agent_result performance| SSE
+    Architecture -.->|agent_result architecture| SSE
+    Evaluator -.->|evaluation_complete| SSE
+    Conflict -.->|conflict_detected| SSE
+    Aggregator -.->|run_complete| SSE
+    
+    %% DB Persistence
+    Aggregator -->|Store run, findings & conflicts| DB
+
+    %% Separate On-Demand Judge Execution path
+    API_Judge -->|Submit conflicting findings| Judge
+    Judge -->|Arbitrate & return verdict| API_Judge
+```
 
 ---
 
@@ -28,7 +105,45 @@ The execution cycle begins when the client submits code for review. The diagram 
 
 Rather than chaining LLM calls in simple, sequential scripts (which increases overall request duration and lacks clear step tracking), Anviksha models its pipeline as a compiled **StateGraph**.
 
-![LangGraph Graph](../diagrams/langgraph-graph.md)
+```mermaid
+flowchart TD
+    START([START])
+    Preprocess[preprocess_node]
+    Orchestrator[orchestrator_node]
+    
+    Security[security_node]
+    Performance[performance_node]
+    Architecture[architecture_node]
+    
+    Evaluator[evaluator_node]
+    Conflict[conflict_detection_node]
+    Aggregator[aggregator_node]
+    END([END])
+
+    %% Entry nodes
+    START --> Preprocess
+    Preprocess --> Orchestrator
+
+    %% Parallel fan-out
+    Orchestrator --> Security
+    Orchestrator --> Performance
+    Orchestrator --> Architecture
+
+    %% Parallel fan-in (Join edge)
+    Security --> Evaluator
+    Performance --> Evaluator
+    Architecture --> Evaluator
+
+    %% Sequential post-processing
+    Evaluator --> Conflict
+    Conflict --> Aggregator
+    Aggregator --> END
+
+    %% On-demand Judge (runs outside graph lifespan)
+    subgraph OnDemand [POST /api/v1/judge]
+        JudgeNode[judge_agent_inference]
+    end
+```
 
 ### Performance Advantages:
 - **Asynchronous Concurrency:** The Security, Performance, and Architecture nodes execute concurrently on non-blocking graph edges.
@@ -43,7 +158,76 @@ Because multi-agent analysis involves running multiple large LLM queries, waitin
 
 Anviksha uses **Server-Sent Events (SSE)** via `sse-starlette` to stream findings progressively. As soon as the Security agent completes, its findings are serialized to JSON and pushed to the client immediately. The Next.js application catches these events and appends them to a stateful UI list in real time, making the application feel responsive and alive.
 
-![SSE Sequence](../diagrams/sse-sequence.md)
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Engineer (UI)
+    participant Client as Next.js App
+    participant API as FastAPI Router
+    participant Graph as LangGraph Core
+    participant Agent as Specialist Agents
+    participant Eval as EvaluatorAgent
+    participant Conf as ConflictDetectionAgent
+
+    User->>Client: Pastes code + clicks "Analyze"
+    Client->>API: HTTP POST /api/v1/analyze
+    activate API
+    API-->>Client: HTTP 200 OK (EventSource connection established)
+    
+    API->>Graph: Invoke StateGraph(GraphState)
+    activate Graph
+    
+    Graph-->>API: preprocess_node completes
+    API-->>Client: SSE Event: preprocess_complete {"input_length": N}
+
+    Graph-->>API: orchestrator_node completes
+    API-->>Client: SSE Event: orchestrator_context {"language": "...", "framework": "...", "domain": "..."}
+
+    Note over Graph, Agent: Fan-out: Parallel execution of 3 specialists starts
+    
+    par Security Agent
+        Graph->>Agent: Run SecurityAgent with Security Context Frame
+        Agent-->>Graph: Return findings
+        Graph-->>API: security_node completes
+        API-->>Client: SSE Event: agent_result {"agent": "security", "findings": [...]}
+    and Performance Agent
+        Graph->>Agent: Run PerformanceAgent with Performance Context Frame
+        Agent-->>Graph: Return findings
+        Graph-->>API: performance_node completes
+        API-->>Client: SSE Event: agent_result {"agent": "performance", "findings": [...]}
+    and Architecture Agent
+        Graph->>Agent: Run ArchitectureAgent with Architecture Context Frame
+        Agent-->>Graph: Return findings
+        Graph-->>API: architecture_node completes
+        API-->>Client: SSE Event: agent_result {"agent": "architecture", "findings": [...]}
+    end
+
+    Note over Graph, Eval: Fan-in: Combine findings for evaluation
+
+    Graph->>Eval: Run EvaluatorAgent (blind confidence scoring)
+    Eval-->>Graph: Return evaluations
+    Graph-->>API: evaluator_node completes
+    API-->>Client: SSE Event: evaluation_complete {"total_evaluated": X, "low_confidence_count": Y}
+
+    Graph->>Conf: Run ConflictDetectionAgent (mutual exclusivity scan)
+    Conf-->>Graph: Return contradictions
+    Graph-->>API: conflict_detection_node completes
+    API-->>Client: SSE Event: conflict_detected {"conflict_count": Z}
+
+    Graph-->>API: aggregator_node completes (Persists to DB)
+    deactivate Graph
+    API-->>Client: SSE Event: run_complete {"report": {...}}
+    deactivate API
+
+    Note over User, Client: Optional: User views side-by-side conflict and clicks "Ask Judge"
+    Client->>API: POST /api/v1/judge {"conflict": {...}}
+    activate API
+    API->>API: Execute JudgeAgent (arbitrate contradictions)
+    API-->>Client: Return JudgeVerdict {"verdict": "...", "reasoning": "..."}
+    deactivate API
+    Client->>User: Renders Judge Verdict & reasoning card
+```
+
 
 ---
 

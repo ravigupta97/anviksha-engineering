@@ -10,7 +10,70 @@ This document details our table structures, column constraints, indexing strateg
 
 Below is the database ERD showing relations and key properties:
 
-![Database ERD](../diagrams/database-erd.md)
+```mermaid
+erDiagram
+    USERS {
+        uuid id PK
+        text email UK
+        timestamp created_at
+    }
+
+    USER_API_KEYS {
+        uuid id PK
+        uuid user_id FK
+        varchar provider
+        text encrypted_key
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    SESSIONS {
+        uuid id PK
+        uuid user_id INDEX
+        timestamp created_at
+        timestamp last_active
+        text api_key_encrypted
+        varchar provider
+    }
+
+    RUNS {
+        uuid id PK
+        uuid session_id FK
+        uuid user_id FK
+        timestamp created_at INDEX
+        timestamp completed_at
+        varchar status
+        varchar input_type
+        text input_summary
+        integer duration_ms
+        integer conflict_count
+        varchar model_used
+    }
+
+    FINDINGS {
+        uuid id PK
+        uuid run_id FK
+        varchar agent
+        varchar severity INDEX
+        text finding
+        text location
+        text fix_prose
+        text fix_code
+        boolean has_conflict
+        float relevance_score
+        float accuracy_score
+        float actionability_score
+        float severity_calibration_score
+        float confidence_score
+        boolean is_low_confidence
+    }
+
+    USERS ||--o{ RUNS : "owns"
+    USERS ||--o{ USER_API_KEYS : "has"
+    SESSIONS ||--o{ RUNS : "houses"
+    RUNS ||--o{ FINDINGS : "contains"
+```
+
 
 ---
 

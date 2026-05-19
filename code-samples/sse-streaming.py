@@ -20,15 +20,7 @@ async def analyze_events(
     user_id: Optional[str],
     session_id: str,
 ) -> AsyncGenerator[str, None]:
-    """Generates Server-Sent Events (SSE) from the compiled LangGraph.
-    
-    DESIGN RATIONALE:
-    Instead of waiting for the entire multi-agent graph to terminate (which would take
-    5-10 seconds and result in a boring UI loading state), this generator utilizes
-    LangGraph's async stream (`astream`). As each node completes, it yields its output
-    instantly. The generator serializes this data into formal Server-Sent Event formatting,
-    allowing the client to render findings progressively.
-    """
+    """Generates Server-Sent Events (SSE) progressively from the compiled LangGraph run state."""
     run_id = str(uuid.uuid4())
     
     # Send start marker event
@@ -151,12 +143,6 @@ async def analyze_events(
 
 @router.post("/analyze")
 async def analyze_code(request: AnalyzeRequest):
-    """Router endpoint initiating the Server-Sent Event stream.
-    
-    DESIGN RATIONALE:
-    Instead of returning a standard JSON object, we wrap our async generator inside
-    an EventSourceResponse. This keeps the HTTP connection open, allowing us to
-    push chunked analysis events progressively using clean, standardized streaming.
-    """
+    """FastAPI endpoint initiating the Server-Sent Event (SSE) analysis stream."""
     event_generator = analyze_events(request, user_id=None, session_id="local_session")
     return EventSourceResponse(event_generator)
