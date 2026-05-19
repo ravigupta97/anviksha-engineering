@@ -1,6 +1,6 @@
 <div align="center">
 
-# Anviksha — Multi-Agent Code Review System
+# Anviksha - Multi-Agent Code Review System
 
 **अन्वीक्षा** (Sanskrit) — *Critical inquiry. Systematic examination.*
 
